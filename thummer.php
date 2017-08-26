@@ -1,23 +1,11 @@
 <?php
+
 class Thummer {
+    /** @var Configuration */
+	protected $configuration;
 
-	const MIN_LENGTH = 50;
-	const MAX_LENGTH = 500;
-	const BASE_SOURCE_DIR = '/webapp/docroot/content/image';
-	const BASE_TARGET_DIR = '/webapp/docroot/content/imagethumb';
-	const REQUEST_PREFIX_URL_PATH = '/content/imagethumb';
-
-	const SHARPEN_THUMBNAIL = true;
-	const JPEG_IMAGE_QUALITY = 75;
-	const PNG_SAVE_TRANSPARENCY = false;
-
-	const HTTP_THUMBNAIL_RESPONSE = false;
-
-	const FAIL_IMAGE_URL_PATH = '/content/thumbfail.jpg';
-	const FAIL_IMAGE_LOG = false;
-
-
-	public function __construct() {
+	public function __construct(Configuration $configuration) {
+        $this->configuration = $configuration;
 
 		// get requested thumbnail from URI
 		$requestURI = trim($_SERVER['REQUEST_URI']);
@@ -38,7 +26,7 @@ class Thummer {
 
 		if ($sourceImageDetail === -1) {
 			// source image invalid - redirect to fail image
-			$this->redirectURL(self::FAIL_IMAGE_URL_PATH);
+			$this->redirectURL($this->configuration->getFailImageUrlPath());
 			$this->logFailImage($requestedThumb[2]);
 
 			return;
@@ -47,7 +35,7 @@ class Thummer {
 		// source image all good, create thumbnail on disk
 		$targetImagePathFull = $this->generateThumbnail($requestedThumb,$sourceImageDetail);
 
-		if (self::HTTP_THUMBNAIL_RESPONSE) {
+		if ($this->configuration->isHttpThumbnailResponse()) {
 			// output the generated thumbnail binary to the client
 			if (is_file($targetImagePathFull)) {
 				header('Content-Length: ' . filesize($targetImagePathFull));
@@ -64,21 +52,23 @@ class Thummer {
 	private function getRequestedThumb($requestPath) {
 
 		// check for URL prefix - remove if found
-		$requestPath = (strpos($requestPath,self::REQUEST_PREFIX_URL_PATH) === 0)
-			? substr($requestPath,strlen(self::REQUEST_PREFIX_URL_PATH))
+		$requestPath = (strpos($requestPath,$this->configuration->getRequestPrefixUrlPath()) === 0)
+			? substr($requestPath,strlen($this->configuration->getRequestPrefixUrlPath()))
 			: $requestPath;
 
 		// extract target thumbnail dimensions & source image
 		if (!preg_match(
-			'{^/([0-9]{1,4})x([0-9]{1,4})(/.+)$}',
+			'{^.+/([0-9]{1,4})x([0-9]{1,4})(/.+)$}',
 			$requestPath,$requestMatch
-		)) return false;
+		)) {
+		    return false;
+        }
 
 		// ensure width/height are within allowed bounds
 		$width = intval($requestMatch[1]);
 		$height = intval($requestMatch[2]);
-		if (($width < self::MIN_LENGTH) || ($width > self::MAX_LENGTH)) return false;
-		if (($height < self::MIN_LENGTH) || ($height > self::MAX_LENGTH)) return false;
+		if (($width < $this->configuration->getMinLength()) || ($width > $this->configuration->getMaxLength())) return false;
+		if (($height < $this->configuration->getMinLength()) || ($height > $this->configuration->getMaxLength())) return false;
 
 		return array(
 			$width,$height,
@@ -93,7 +83,7 @@ class Thummer {
 	private function getSourceImageDetail($source) {
 
 		// image file exists?
-		$srcPath = self::BASE_SOURCE_DIR . $source;
+		$srcPath = $this->configuration->getBaseSourceDir() . $source;
 		if (!is_file($srcPath)) return false;
 
 		// valid web image? return width/height/type
@@ -131,10 +121,10 @@ class Thummer {
 		}
 
 		// create source/target GD images and resize/resample
-		$imageSrc = $this->createSourceGDImage($sourceType,self::BASE_SOURCE_DIR . $targetImagePathSuffix);
+		$imageSrc = $this->createSourceGDImage($sourceType,$this->configuration->getBaseSourceDir() . $targetImagePathSuffix);
 		$imageDst = imagecreatetruecolor($targetWidth,$targetHeight);
 
-		if (($sourceType == IMAGETYPE_PNG) && self::PNG_SAVE_TRANSPARENCY) {
+		if (($sourceType == IMAGETYPE_PNG) && $this->configuration->isPngSaveTransparency()) {
 			// save PNG transparency in target thumbnail
 			imagealphablending($imageDst,false);
 			imagesavealpha($imageDst,true);
@@ -151,7 +141,7 @@ class Thummer {
 		$this->sharpenThumbnail($imageDst);
 
 		// construct full path to target image on disk and temp filename
-		$targetImagePathFull = sprintf('%s/%dx%d%s',self::BASE_TARGET_DIR,$targetWidth,$targetHeight,$targetImagePathSuffix);
+		$targetImagePathFull = sprintf('%s/%dx%d%s',$this->configuration->getBaseTargetDir(),$targetWidth,$targetHeight,$targetImagePathSuffix);
 		$targetImagePathFullTemp = $targetImagePathFull . '.' . md5(uniqid());
 
 		// if target image path doesn't exist, create it now
@@ -170,7 +160,7 @@ class Thummer {
 				break;
 
 			case IMAGETYPE_JPEG:
-				imagejpeg($imageDst,$targetImagePathFullTemp,self::JPEG_IMAGE_QUALITY);
+				imagejpeg($imageDst,$targetImagePathFullTemp,$this->configuration->getJpegImageQuality());
 				break;
 
 			default: // PNG image
@@ -183,7 +173,7 @@ class Thummer {
 
 		// move temp image file into place, avoiding race conditions between thummer requests and set modify timestamp to source image
 		rename($targetImagePathFullTemp,$targetImagePathFull);
-		touch($targetImagePathFull,filemtime(self::BASE_SOURCE_DIR . $targetImagePathSuffix));
+		touch($targetImagePathFull,filemtime($this->configuration->getBaseSourceDir() . $targetImagePathSuffix));
 
 		return $targetImagePathFull;
 	}
@@ -203,7 +193,7 @@ class Thummer {
 
 	private function sharpenThumbnail($image) {
 
-		if (!self::SHARPEN_THUMBNAIL) return;
+		if (!$this->configuration->isSharpenThumbnail()) return;
 
 		// build matrix and divisor
 		$matrix = array(
@@ -226,11 +216,11 @@ class Thummer {
 
 	private function logFailImage($source) {
 
-		if (self::FAIL_IMAGE_LOG === false) return;
+		if ($this->configuration->isFailImageLog() === false) return;
 
 		// write the requested file path to the error log
-		$fp = fopen(self::FAIL_IMAGE_LOG,'a');
-		fwrite($fp,self::BASE_SOURCE_DIR . $source . "\n");
+		$fp = fopen($this->configuration->isFailImageLog(),'a');
+		fwrite($fp,$this->configuration->getBaseSourceDir() . $source . "\n");
 		fclose($fp);
 	}
 
@@ -252,6 +242,3 @@ class Thummer {
 		);
 	}
 }
-
-
-new Thummer();
