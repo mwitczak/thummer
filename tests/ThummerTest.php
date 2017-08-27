@@ -1,6 +1,7 @@
 <?php
 
 require_once('src/Thummer.php');
+require_once('src/GDThumbnailGenerator.php');
 require_once('src/Configuration.php');
 require_once('ThummerMock.php');
 
@@ -9,7 +10,8 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testObjectCreated()
     {
         $configuration = new Configuration();
-        $thummer = new Thummer($configuration);
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummer = new Thummer($configuration, $thumbnailGenerator);
 
         $this->assertInstanceOf(Thummer::class, $thummer);
     }
@@ -21,7 +23,8 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testUnprocessableThumbnailPathFails()
     {
         $configuration = new Configuration();
-        $thummer = new Thummer($configuration);
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummer = new Thummer($configuration, $thumbnailGenerator);
         $thummer->makeThumbnail('abcde');
     }
 
@@ -31,7 +34,8 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testThumbnailWidthOutOfBoundsFails()
     {
         $configuration = new Configuration();
-        $thummer = new Thummer($configuration);
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummer = new Thummer($configuration, $thumbnailGenerator);
         $thummer->makeThumbnail('thumb/1000x100/test.jpg');
     }
 
@@ -41,7 +45,8 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testThumbnailHeightOutOfBoundsFails()
     {
         $configuration = new Configuration();
-        $thummer = new Thummer($configuration);
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummer = new Thummer($configuration, $thumbnailGenerator);
         $thummer->makeThumbnail('thumb/100x1000/test.jpg');
     }
 
@@ -52,7 +57,8 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testFileDoesNotExist()
     {
         $configuration = new Configuration();
-        $thummerMock = new ThummerMock($configuration);
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
         $thummerMock->isFile = false;
         $thummerMock->makeThumbnail('thumb/100x100/test.jpg');
     }
@@ -64,7 +70,8 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testImageTypeNotValid()
     {
         $configuration = new Configuration();
-        $thummerMock = new ThummerMock($configuration);
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
         $thummerMock->isFile = true;
         $thummerMock->imageSize[2] = IMAGETYPE_BMP;
         $thummerMock->makeThumbnail('thumb/100x100/test.bmp');
@@ -78,7 +85,8 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     {
         $this->markTestIncomplete();
         $configuration = new Configuration();
-        $thummerMock = new ThummerMock($configuration);
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
         $thummerMock->isFile = true;
         $thummerMock->makeThumbnail('thumb/100x100/apple.jpg');
     }
