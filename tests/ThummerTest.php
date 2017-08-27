@@ -1,8 +1,9 @@
 <?php
 
-require_once('src/Thummer.php');
-require_once('src/GDThumbnailGenerator.php');
-require_once('src/Configuration.php');
+use Thummer\Configuration;
+use Thummer\ThumbnailGenerator\GDThumbnailGenerator;
+use Thummer\Thummer;
+
 require_once('ThummerMock.php');
 
 class ThummerTest extends \PHPUnit\Framework\TestCase
@@ -17,8 +18,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @expectedException        Exception
-     * @expectedExceptionMessage Unprocessable thumbnail path
+     * @expectedException InvalidArgumentException
      */
     public function testUnprocessableThumbnailPathFails()
     {
@@ -51,8 +51,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @expectedException Exception
-     * @expectedExceptionMessage File not found
+     * @expectedException \Thummer\Exceptions\FileNotFoundException
      */
     public function testFileDoesNotExist()
     {
@@ -64,8 +63,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * @expectedException Exception
-     * @expectedExceptionMessage Not valid image
+     * @expectedException \Thummer\Exceptions\InvalidImageException
      */
     public function testImageTypeNotValid()
     {

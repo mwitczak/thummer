@@ -1,27 +1,36 @@
 <?php
 
+namespace Thummer;
+
+use InvalidArgumentException;
+use OutOfBoundsException;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
+use Thummer\Exceptions\FileNotFoundException;
+use Thummer\ThumbnailGenerator\AbstractThumbnailGenerator;
+
 class Thummer
 {
     /** @var Configuration */
     protected $configuration;
-    /** @var ThumbnailGeneratorInterface */
+    /** @var AbstractThumbnailGenerator */
     protected $thumbnailGenerator;
 
     public function __construct(
         Configuration $configuration,
-        ThumbnailGeneratorInterface $thumbnailGenerator
+        AbstractThumbnailGenerator $thumbnailGenerator
     ) {
         $this->configuration = $configuration;
         $this->thumbnailGenerator = $thumbnailGenerator;
     }
 
-    public function makeThumbnail(string $filePath)
+    public function makeThumbnail(string $filePath): Response
     {
         // get requested thumbnail from URI
         $requestURI = trim($filePath);
+        $requestedThumb = $this->getRequestedThumbFromURI($requestURI);
 
         /*try {*/
-            $requestedThumb = $this->getRequestedThumb($requestURI);
             // fetch source image details
         /*} catch (Exception $e) {
             // unable to determine requested thumbnail from URL
@@ -44,36 +53,38 @@ class Thummer
         }*/
 
         //image file exists?
-        $srcPath = $this->configuration->getBaseSourceDir() . $requestedThumb[2];
-
+        $srcPath = $this->configuration->getBaseSourceDir() . $requestedThumb['file'];
         if (!$this->isFile($srcPath)) {
-            throw new Exception('File not found');
+            throw new FileNotFoundException();
         }
 
         // source image all good, create thumbnail on disk
         $thumbData = $this->thumbnailGenerator->generateThumbnail(
             $srcPath,
-            $requestedThumb[0],
-            $requestedThumb[1]
+            $requestedThumb['width'],
+            $requestedThumb['height']
         );
 
         $targetImagePathFull = $thumbData['path'];
 
         if ($this->configuration->isHttpThumbnailResponse()) {
             // output the generated thumbnail binary to the client
-            if (is_file($targetImagePathFull)) {
-                header('Content-Length: ' . filesize($targetImagePathFull));
-                header('Content-Type: ' . $thumbData['fileType']);
-                readfile($targetImagePathFull);
+            if ($this->isFile($targetImagePathFull)) {
+                $response = new Response();
+                $response->headers->add([
+                    'Content-Length: ' => filesize($targetImagePathFull),
+                    'Content-Type: ' => $thumbData['fileType']
+                ]);
+                $response->setContent(file_get_contents($targetImagePathFull));
+                return $response;
             }
-
-        } else {
-            // redirect back to initial URL to display generated thumbnail image
-            $this->redirectURL($requestURI);
         }
+
+        // redirect back to initial URL to display generated thumbnail image
+        return new RedirectResponse($requestURI);
     }
 
-    private function getRequestedThumb($requestPath): array
+    private function getRequestedThumbFromURI($requestPath): array
     {
         // check for URL prefix - remove if found
         $requestPath = (strpos($requestPath, $this->configuration->getRequestPrefixUrlPath()) === 0)
@@ -86,7 +97,7 @@ class Thummer
             $requestPath, $requestMatch
         )
         ) {
-            throw new Exception('Unprocessable thumbnail path');
+            throw new InvalidArgumentException();
         }
 
         // ensure width/height are within allowed bounds
@@ -100,10 +111,10 @@ class Thummer
         }
 
         return [
-            $width,
-            $height,
+            "width" => $width,
+            "height" => $height,
             // remove parent path components if request is trying to be sneaky
-            str_replace(
+            "file" => str_replace(
                 array('../', './'), '',
                 $requestMatch[3]
             )
@@ -127,18 +138,5 @@ class Thummer
     protected function isFile($srcPath): bool
     {
         return is_file($srcPath);
-    }
-
-    private function redirectURL($targetPath)
-    {
-        header(
-            sprintf(
-                'Location: http%s://%s%s',
-                ((isset($_SERVER['SERVER_PORT'])) && ($_SERVER['SERVER_PORT'] == 443)) ? 's' : '',
-                $_SERVER['HTTP_HOST'],
-                $targetPath
-            ),
-            true, 301
-        );
     }
 }

@@ -1,8 +1,11 @@
 <?php
 
-require_once('src/ThumbnailGeneratorInterface.php');
+namespace Thummer\ThumbnailGenerator;
 
-class GDThumbnailGenerator implements ThumbnailGeneratorInterface
+use Thummer\Configuration;
+use Thummer\Exceptions\InvalidImageException;
+
+class GDThumbnailGenerator extends AbstractThumbnailGenerator
 {
     /** @var Configuration */
     protected $configuration;
@@ -20,15 +23,7 @@ class GDThumbnailGenerator implements ThumbnailGeneratorInterface
 // calculate source image copy dimensions, fixed to target requested thumbnail aspect ratio
         list($sourceWidth, $sourceHeight, $sourceType) = $sourceImageDetail;
 
-        $targetAspectRatio = $width / $height;
-        $copyWidth = intval($sourceHeight * $targetAspectRatio);
-        $copyHeight = $sourceHeight;
-
-        if ($copyWidth > $sourceWidth) {
-            // resize copy height fixed to target aspect
-            $copyWidth = $sourceWidth;
-            $copyHeight = intval($sourceWidth / $targetAspectRatio);
-        }
+        list($copyWidth, $copyHeight) = $this->calculateDimensions($width, $height, $sourceWidth, $sourceHeight);
 
         // create source/target GD images and resize/resample
         $imageSrc = $this->createSourceGDImage($sourceType, $filePath);
@@ -83,7 +78,7 @@ class GDThumbnailGenerator implements ThumbnailGeneratorInterface
 
         // move temp image file into place, avoiding race conditions between thummer requests and set modify timestamp to source image
         rename($targetImagePathFullTemp, $targetImagePathFull);
-        touch($targetImagePathFull, filemtime($this->configuration->getBaseSourceDir() . $filePath));
+        touch($targetImagePathFull, filemtime($filePath));
 
         return [
             'path' => $targetImagePathFull,
@@ -106,7 +101,7 @@ class GDThumbnailGenerator implements ThumbnailGeneratorInterface
                 $detail['mime'] // MIME type
             ];
         } else {
-            throw new Exception('Not valid image');
+            throw new InvalidImageException();
         }
     }
 
@@ -125,9 +120,13 @@ class GDThumbnailGenerator implements ThumbnailGeneratorInterface
 
     private function createSourceGDImage($type, $path)
     {
-        if ($type == IMAGETYPE_GIF) return imagecreatefromgif($path);
-        if ($type == IMAGETYPE_JPEG) return imagecreatefromjpeg($path);
-        return imagecreatefrompng($path);
+        if ($type == IMAGETYPE_GIF) {
+            return imagecreatefromgif($path);
+        } else if ($type == IMAGETYPE_JPEG) {
+            return imagecreatefromjpeg($path);
+        } else {
+            return imagecreatefrompng($path);
+        }
     }
 
     private function calcThumbnailSourceCopyPoint($sourceLength, $copyLength)
@@ -138,20 +137,26 @@ class GDThumbnailGenerator implements ThumbnailGeneratorInterface
 
     private function sharpenThumbnail($image)
     {
-        if (!$this->configuration->isSharpenThumbnail()) return;
+        if (!$this->configuration->isSharpenThumbnail()) {
+            return $image;
+        }
 
         // build matrix and divisor
-        $matrix = array(
-            array(-1.2, -1, -1.2),
-            array(-1, 20, -1),
-            array(-1.2, -1, -1.2)
-        );
+        $matrix = [
+            [-1.2, -1, -1.2],
+            [-1, 20, -1],
+            [-1.2, -1, -1.2]
+        ];
 
         // apply to image
         imageconvolution(
-            $image, $matrix,
-            11.2, 0 // note: array_sum(array_map('array_sum',$matrix)) = 11.2;
+            $image,
+            $matrix,
+            11.2,
+            0 // note: array_sum(array_map('array_sum',$matrix)) = 11.2;
         );
+
+        return $image;
     }
 
     private function errorWarningSink()

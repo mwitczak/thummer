@@ -1,5 +1,7 @@
 <?php
 
+namespace Thummer;
+
 class Configuration {
     protected const MIN_LENGTH = 50;
     protected const MAX_LENGTH = 500;

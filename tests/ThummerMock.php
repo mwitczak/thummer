@@ -1,6 +1,6 @@
 <?php
 
-require_once('src/Thummer.php');
+use Thummer\Thummer;
 
 class ThummerMock extends Thummer
 {
