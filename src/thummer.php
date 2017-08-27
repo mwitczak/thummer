@@ -8,18 +8,23 @@ class Thummer
     public function __construct(Configuration $configuration)
     {
         $this->configuration = $configuration;
+    }
 
+    public function makeThumbnail(string $filePath)
+    {
         // get requested thumbnail from URI
-        $requestURI = trim($_SERVER['REQUEST_URI']);
-        $requestedThumb = $this->getRequestedThumb($requestURI);
-        if ($requestedThumb === false) {
+        $requestURI = trim($filePath);
+
+        /*try {*/
+            $requestedThumb = $this->getRequestedThumb($requestURI);
+            // fetch source image details
+            $sourceImageDetail = $this->getSourceImageDetail($requestedThumb[2]);
+        /*} catch (Exception $e) {
             // unable to determine requested thumbnail from URL
             $this->send404header();
-            return;
-        }
+            return ;
+        }*/
 
-        // fetch source image details
-        $sourceImageDetail = $this->getSourceImageDetail($requestedThumb[2]);
         if ($sourceImageDetail === false) {
             // unable to locate source image
             $this->send404header();
@@ -51,7 +56,7 @@ class Thummer
         }
     }
 
-    private function getRequestedThumb($requestPath)
+    private function getRequestedThumb($requestPath): array
     {
         // check for URL prefix - remove if found
         $requestPath = (strpos($requestPath, $this->configuration->getRequestPrefixUrlPath()) === 0)
@@ -64,30 +69,37 @@ class Thummer
             $requestPath, $requestMatch
         )
         ) {
-            return false;
+            throw new Exception('Unprocessable thumbnail path');
         }
 
         // ensure width/height are within allowed bounds
         $width = intval($requestMatch[1]);
         $height = intval($requestMatch[2]);
-        if (($width < $this->configuration->getMinLength()) || ($width > $this->configuration->getMaxLength())) return false;
-        if (($height < $this->configuration->getMinLength()) || ($height > $this->configuration->getMaxLength())) return false;
+        if (($width < $this->configuration->getMinLength()) || ($width > $this->configuration->getMaxLength())) {
+            throw new OutOfBoundsException();
+        }
+        if (($height < $this->configuration->getMinLength()) || ($height > $this->configuration->getMaxLength())) {
+            throw new OutOfBoundsException();
+        }
 
-        return array(
-            $width, $height,
+        return [
+            $width,
+            $height,
             // remove parent path components if request is trying to be sneaky
             str_replace(
                 array('../', './'), '',
                 $requestMatch[3]
             )
-        );
+        ];
     }
 
-    private function getSourceImageDetail($source)
+    private function getSourceImageDetail($source): array
     {
         // image file exists?
         $srcPath = $this->configuration->getBaseSourceDir() . $source;
-        if (!is_file($srcPath)) return false;
+        if (!is_file($srcPath)) {
+            throw new Exception('File not found');
+        }
 
         // valid web image? return width/height/type
         set_error_handler(array($this, 'errorWarningSink'));
@@ -97,14 +109,16 @@ class Thummer
         if (
             ($detail !== false) &&
             (($detail[2] == IMAGETYPE_GIF) || ($detail[2] == IMAGETYPE_JPEG) || ($detail[2] == IMAGETYPE_PNG))
-        ) return array(
-            $detail[0], $detail[1], // width/height
-            $detail[2], // image type
-            $detail['mime'] // MIME type
-        );
-
-        // not a valid image(type)
-        return -1;
+        ) {
+            return [
+                $detail[0],
+                $detail[1], // width/height
+                $detail[2], // image type
+                $detail['mime'] // MIME type
+            ];
+        } else {
+            throw new Exception('Not valid image');
+        }
     }
 
     private function generateThumbnail(array $requestedThumb, array $sourceImageDetail)

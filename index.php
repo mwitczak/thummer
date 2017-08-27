@@ -8,4 +8,5 @@ error_reporting(E_ALL);
 $configuration = new Configuration();
 $configuration->setJpegImageQuality(0);
 
-new Thummer($configuration);
+$thummer = new Thummer($configuration);
+$thummer->makeThumbnail($_SERVER['REQUEST_URI']);
