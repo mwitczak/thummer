@@ -1,4 +1,5 @@
 <?php
+namespace Thummer\Tests;
 
 use Thummer\Thummer;
 

@@ -1,19 +1,21 @@
 <?php
+namespace Thummer\Tests;
 
+use Exception;
+use InvalidArgumentException;
+use OutOfBoundsException;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Thummer\Configuration;
-use Thummer\ThumbnailGenerator\GDThumbnailGenerator;
 use Thummer\Thummer;
 
-require_once('ThummerMock.php');
-
-class ThummerTest extends \PHPUnit\Framework\TestCase
+class ThummerTest extends TestCase
 {
     public function testObjectCreated()
     {
         $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummer = new Thummer($configuration, $thumbnailGenerator);
 
         $this->assertInstanceOf(Thummer::class, $thummer);
@@ -25,7 +27,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testUnprocessableThumbnailPathFails()
     {
         $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummer = new Thummer($configuration, $thumbnailGenerator);
         $thummer->makeThumbnail('abcde');
     }
@@ -36,7 +38,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testThumbnailWidthOutOfBoundsFails()
     {
         $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummer = new Thummer($configuration, $thumbnailGenerator);
         $thummer->makeThumbnail('thumb/1000x100/test.jpg');
     }
@@ -47,7 +49,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testThumbnailHeightOutOfBoundsFails()
     {
         $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummer = new Thummer($configuration, $thumbnailGenerator);
         $thummer->makeThumbnail('thumb/100x1000/test.jpg');
     }
@@ -58,7 +60,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testFileDoesNotExist()
     {
         $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
         $thummerMock->isFile = false;
         $thummerMock->makeThumbnail('thumb/100x100/test.jpg');
@@ -70,31 +72,17 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
     public function testImageTypeNotValid()
     {
         $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
         $thummerMock->isFile = true;
         $thummerMock->imageSize[2] = IMAGETYPE_BMP;
         $thummerMock->makeThumbnail('thumb/100x100/test.bmp');
     }
 
-    /**
-     * @expectedException Exception
-     * @expectedExceptionMessage File not found
-     */
-    public function testFileExist()
-    {
-        $this->markTestIncomplete();
-        $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
-        $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
-        $thummerMock->isFile = true;
-        $thummerMock->makeThumbnail('thumb/100x100/apple.jpg');
-    }
-
     public function testInvalidImage404Response()
     {
         $configuration = new Configuration();
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
 
         $response = $thummerMock->getThumbnailResponse('thumb/100x100/not-existing-file.jpg');
@@ -107,13 +95,13 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
         $configuration = new Configuration();
         $configuration->setHttpThumbnailResponse(true);
 
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
 
         $response = $thummerMock->getThumbnailResponse('thumb/100x100/apple.jpg');
 
         $this->assertEquals($response->getStatusCode(), Response::HTTP_OK);
-        $this->assertSame(file_get_contents('imagethumb/100x100/apple.jpg'), $response->getContent());
+        $this->assertSame(file_get_contents('image/apple.jpg'), $response->getContent());
     }
 
     public function testCorrectImageRedirectResponse()
@@ -121,7 +109,7 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
         $configuration = new Configuration();
         $configuration->setHttpThumbnailResponse(false);
 
-        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thumbnailGenerator = new ThumbnailGeneratorMock($configuration);
         $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
 
         $response = $thummerMock->getThumbnailResponse('thumb/100x100/apple.jpg');
