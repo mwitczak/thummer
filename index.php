@@ -14,5 +14,5 @@ $configuration->setJpegImageQuality(0);
 $thumbnailGenerator = new GDThumbnailGenerator($configuration);
 
 $thummer = new Thummer($configuration, $thumbnailGenerator);
-$response = $thummer->makeThumbnail($_SERVER['REQUEST_URI']);
+$response = $thummer->getThumbnailResponse($_SERVER['REQUEST_URI']);
 $response->send();

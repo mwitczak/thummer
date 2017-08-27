@@ -2,6 +2,7 @@
 
 namespace Thummer;
 
+use Exception;
 use InvalidArgumentException;
 use OutOfBoundsException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -24,33 +25,36 @@ class Thummer
         $this->thumbnailGenerator = $thumbnailGenerator;
     }
 
-    public function makeThumbnail(string $filePath): Response
+    public function getThumbnailResponse(string $filePath): Response
+    {
+        try {
+            $requestURI = trim($filePath);
+            $thumbData = $this->makeThumbnail($requestURI);
+        } catch (Exception $e) {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+
+        if ($this->configuration->isHttpThumbnailResponse()) {
+            // output the generated thumbnail binary to the client
+            if ($this->isFile($thumbData['path'])) {
+                $response = new Response();
+                $response->headers->add([
+                    'Content-Length: ' => filesize($thumbData['path']),
+                    'Content-Type: ' => $thumbData['fileType']
+                ]);
+                $response->setContent(file_get_contents($thumbData['path']));
+                return $response;
+            }
+        }
+
+        // redirect back to initial URL to display generated thumbnail image
+        return new RedirectResponse($requestURI);
+    }
+
+    public function makeThumbnail(string $filePath): array
     {
         // get requested thumbnail from URI
-        $requestURI = trim($filePath);
-        $requestedThumb = $this->getRequestedThumbFromURI($requestURI);
-
-        /*try {*/
-            // fetch source image details
-        /*} catch (Exception $e) {
-            // unable to determine requested thumbnail from URL
-            $this->send404header();
-            return ;
-        }*/
-
-        /*if ($sourceImageDetail === false) {
-            // unable to locate source image
-            $this->send404header();
-            return;
-        }*/
-
-        /*if ($sourceImageDetail === -1) {
-            // source image invalid - redirect to fail image
-            $this->redirectURL($this->configuration->getFailImageUrlPath());
-            $this->logFailImage($requestedThumb[2]);
-
-            return;
-        }*/
+        $requestedThumb = $this->getRequestedThumbFromURI($filePath);
 
         //image file exists?
         $srcPath = $this->configuration->getBaseSourceDir() . $requestedThumb['file'];
@@ -65,23 +69,7 @@ class Thummer
             $requestedThumb['height']
         );
 
-        $targetImagePathFull = $thumbData['path'];
-
-        if ($this->configuration->isHttpThumbnailResponse()) {
-            // output the generated thumbnail binary to the client
-            if ($this->isFile($targetImagePathFull)) {
-                $response = new Response();
-                $response->headers->add([
-                    'Content-Length: ' => filesize($targetImagePathFull),
-                    'Content-Type: ' => $thumbData['fileType']
-                ]);
-                $response->setContent(file_get_contents($targetImagePathFull));
-                return $response;
-            }
-        }
-
-        // redirect back to initial URL to display generated thumbnail image
-        return new RedirectResponse($requestURI);
+        return $thumbData;
     }
 
     private function getRequestedThumbFromURI($requestPath): array
@@ -119,16 +107,6 @@ class Thummer
                 $requestMatch[3]
             )
         ];
-    }
-
-    private function logFailImage($source)
-    {
-        if ($this->configuration->isFailImageLog() === false) return;
-
-        // write the requested file path to the error log
-        $fp = fopen($this->configuration->isFailImageLog(), 'a');
-        fwrite($fp, $this->configuration->getBaseSourceDir() . $source . "\n");
-        fclose($fp);
     }
 
     /**

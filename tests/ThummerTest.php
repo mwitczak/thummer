@@ -1,5 +1,7 @@
 <?php
 
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Thummer\Configuration;
 use Thummer\ThumbnailGenerator\GDThumbnailGenerator;
 use Thummer\Thummer;
@@ -87,5 +89,43 @@ class ThummerTest extends \PHPUnit\Framework\TestCase
         $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
         $thummerMock->isFile = true;
         $thummerMock->makeThumbnail('thumb/100x100/apple.jpg');
+    }
+
+    public function testInvalidImage404Response()
+    {
+        $configuration = new Configuration();
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
+
+        $response = $thummerMock->getThumbnailResponse('thumb/100x100/not-existing-file.jpg');
+
+        $this->assertEquals($response->getStatusCode(), Response::HTTP_NOT_FOUND);
+    }
+
+    public function testCorrectImageResponse()
+    {
+        $configuration = new Configuration();
+        $configuration->setHttpThumbnailResponse(true);
+
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
+
+        $response = $thummerMock->getThumbnailResponse('thumb/100x100/apple.jpg');
+
+        $this->assertEquals($response->getStatusCode(), Response::HTTP_OK);
+        $this->assertSame(file_get_contents('imagethumb/100x100/apple.jpg'), $response->getContent());
+    }
+
+    public function testCorrectImageRedirectResponse()
+    {
+        $configuration = new Configuration();
+        $configuration->setHttpThumbnailResponse(false);
+
+        $thumbnailGenerator = new GDThumbnailGenerator($configuration);
+        $thummerMock = new ThummerMock($configuration, $thumbnailGenerator);
+
+        $response = $thummerMock->getThumbnailResponse('thumb/100x100/apple.jpg');
+
+        $this->assertInstanceOf(RedirectResponse::class, $response);
     }
 }
