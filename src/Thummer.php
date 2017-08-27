@@ -25,11 +25,11 @@ class Thummer
             return ;
         }*/
 
-        if ($sourceImageDetail === false) {
+        /*if ($sourceImageDetail === false) {
             // unable to locate source image
             $this->send404header();
             return;
-        }
+        }*/
 
         if ($sourceImageDetail === -1) {
             // source image invalid - redirect to fail image
@@ -97,14 +97,10 @@ class Thummer
     {
         // image file exists?
         $srcPath = $this->configuration->getBaseSourceDir() . $source;
-        if (!is_file($srcPath)) {
+        if (!$this->isFile($srcPath)) {
             throw new Exception('File not found');
         }
-
-        // valid web image? return width/height/type
-        set_error_handler(array($this, 'errorWarningSink'));
-        $detail = getimagesize($srcPath);
-        restore_error_handler();
+        $detail = $this->getImageSize($srcPath);
 
         if (
             ($detail !== false) &&
@@ -241,11 +237,6 @@ class Thummer
         fclose($fp);
     }
 
-    private function send404header()
-    {
-        header('HTTP/1.0 404 Not Found');
-    }
-
     private function redirectURL($targetPath)
     {
         header(
@@ -257,5 +248,27 @@ class Thummer
             ),
             true, 301
         );
+    }
+
+    /**
+     * @param $srcPath
+     * @return array|bool
+     */
+    protected function getImageSize($srcPath)
+    {
+        // valid web image? return width/height/type
+        set_error_handler(array($this, 'errorWarningSink'));
+        $detail = getimagesize($srcPath);
+        restore_error_handler();
+        return $detail;
+    }
+
+    /**
+     * @param $srcPath
+     * @return bool
+     */
+    protected function isFile($srcPath): bool
+    {
+        return is_file($srcPath);
     }
 }

@@ -8,5 +8,9 @@ error_reporting(E_ALL);
 $configuration = new Configuration();
 $configuration->setJpegImageQuality(0);
 
-$thummer = new Thummer($configuration);
-$thummer->makeThumbnail($_SERVER['REQUEST_URI']);
+try {
+    $thummer = new Thummer($configuration);
+    $thummer->makeThumbnail($_SERVER['REQUEST_URI']);
+} catch (Exception $e) {
+    header('HTTP/1.0 404 Not Found');
+}
