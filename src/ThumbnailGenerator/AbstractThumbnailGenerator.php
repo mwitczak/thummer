@@ -19,4 +19,21 @@ abstract class AbstractThumbnailGenerator {
 
         return [$copyWidth, $copyHeight];
     }
+
+    protected function calculateDimensionsByLongEdge($longEdge, $sourceWidth, $sourceHeight)
+    {
+        $targetAspectRatio = $sourceWidth / $sourceHeight;
+
+        if ($sourceWidth > $sourceHeight) {
+            return [
+                $longEdge,
+                $longEdge / $targetAspectRatio
+            ];
+        }
+
+        return [
+            $longEdge * $targetAspectRatio,
+            $longEdge
+        ];
+    }
 }
