@@ -1,5 +1,4 @@
 <?php
-
 namespace Thummer\ThumbnailGenerator;
 
 use Thummer\Configuration;
@@ -20,17 +19,15 @@ class GDThumbnailGenerator extends AbstractThumbnailGenerator
         $fileName = basename($filePath);
         $sourceImageDetail = $this->getSourceImageDetail($filePath);
 
-// calculate source image copy dimensions, fixed to target requested thumbnail aspect ratio
+	// calculate source image copy dimensions, fixed to target requested thumbnail aspect ratio
         list($sourceWidth, $sourceHeight, $sourceType) = $sourceImageDetail;
 
         list($copyWidth, $copyHeight) = $this->calculateDimensions($width, $height, $sourceWidth, $sourceHeight);
-
         // create source/target GD images and resize/resample
         $imageSrc = $this->createSourceGDImage($sourceType, $filePath);
         $imageDst = imagecreatetruecolor($width, $height);
-
         if (($sourceType == IMAGETYPE_PNG) && $this->configuration->isPngSaveTransparency()) {
-            // save PNG transparency in target thumbnail
+//             save PNG transparency in target thumbnail
             imagealphablending($imageDst, false);
             imagesavealpha($imageDst, true);
         }
@@ -45,8 +42,9 @@ class GDThumbnailGenerator extends AbstractThumbnailGenerator
         // sharpen thumbnail
         $this->sharpenThumbnail($imageDst);
 
-        // construct full path to target image on disk and temp filename
-        $targetImagePathFull = sprintf('%s/%dx%d/%s', $this->configuration->getBaseTargetDir(), $width, $height, $fileName);
+        // construct full path to target image on disk and temp filenam
+        $targetImagePathFull = sprintf('%s/%dx%d/%s', $this->configuration->getBaseTargetDir(), $width, $height, $filePath);
+	$targetImagePathFull = str_replace('image/', '', $targetImagePathFull); 
         $targetImagePathFullTemp = $targetImagePathFull . '.' . md5(uniqid());
 
         // if target image path doesn't exist, create it now
@@ -79,7 +77,6 @@ class GDThumbnailGenerator extends AbstractThumbnailGenerator
         // move temp image file into place, avoiding race conditions between thummer requests and set modify timestamp to source image
         rename($targetImagePathFullTemp, $targetImagePathFull);
         touch($targetImagePathFull, filemtime($filePath));
-
         return [
             'path' => $targetImagePathFull,
             'fileType' => $sourceImageDetail[2]
