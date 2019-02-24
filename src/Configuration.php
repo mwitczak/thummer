@@ -3,7 +3,7 @@
 namespace Thummer;
 
 class Configuration {
-    protected const MIN_LENGTH = 50;
+    protected const MIN_LENGTH = 10;
     protected const MAX_LENGTH = 1200;
     protected const BASE_SOURCE_DIR = 'image';
     protected const BASE_TARGET_DIR = 'imagethumb';
